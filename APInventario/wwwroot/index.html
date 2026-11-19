@@ -1,0 +1,550 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrador - Control de Inventario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+    <!-- Notificaciones Toast -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- Navegación Principal -->
+    <nav class="bg-indigo-700 text-white p-4 flex justify-between items-center shadow-lg mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-xl font-bold">📦 Control de Inventario (Administrador)</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="labelUsuario" class="text-sm font-semibold"></span>
+            <button onclick="cerrarSesion()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs transition flex items-center gap-1">
+                <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+            </button>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+        <!-- COLUMNA IZQUIERDA -->
+        <div class="space-y-6">
+
+            <!-- 1. Crear Producto -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-indigo-600">
+                <h2 class="text-lg font-bold mb-4 text-indigo-700 flex items-center gap-2">
+                    <i class="fa-solid fa-plus-circle"></i> Agregar Nuevo Producto
+                </h2>
+                <form id="formProducto" class="space-y-3">
+                    <input type="text" id="codigo_barras" placeholder="Código de Barras" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    <input type="text" id="nombre" placeholder="Nombre del Producto" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    <textarea id="descripcion" placeholder="Descripción" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" rows="2"></textarea>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="id_categoria" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                            <option value="">Seleccionar Categoría</option>
+                        </select>
+                        <select id="id_proveedor" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                            <option value="">Seleccionar Proveedor</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" step="0.01" id="precio_compra" placeholder="Precio Compra ($)" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        <input type="number" step="0.01" id="precio_venta" placeholder="Precio Venta ($)" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="stock_actual" placeholder="Stock Inicial" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        <input type="number" id="stock_minimo" placeholder="Stock Mínimo" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded transition text-sm">
+                        Guardar Producto
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. Gestión de Categorías -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-purple-600">
+                <h2 class="text-lg font-bold mb-3 text-purple-700 flex items-center gap-2">
+                    <i class="fa-solid fa-tags"></i> Gestión de Categorías
+                </h2>
+                <form id="formCategoria" class="flex gap-2 mb-4">
+                    <input type="text" id="nombreCategoria" placeholder="Nueva Categoría" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" required>
+                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-2 rounded font-bold transition whitespace-nowrap">
+                        + Agregar
+                    </button>
+                </form>
+
+                <div class="overflow-y-auto max-h-40 border rounded">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-purple-50 border-b">
+                            <tr>
+                                <th class="p-2">ID</th>
+                                <th class="p-2">Nombre</th>
+                                <th class="p-2 text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaCategorias" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. Registrar Movimiento Libre -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-emerald-600">
+                <h2 class="text-lg font-bold mb-4 text-emerald-700 flex items-center gap-2">
+                    <i class="fa-solid fa-right-left"></i> Registrar Movimiento Libre
+                </h2>
+                <form id="formMovimiento" class="space-y-3">
+                    <select id="mov_id_producto" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                        <option value="">Seleccionar Producto</option>
+                    </select>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="mov_tipo" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                            <option value="ENTRADA">ENTRADA (+)</option>
+                            <option value="SALIDA">SALIDA (-)</option>
+                        </select>
+                        <input type="number" id="mov_cantidad" placeholder="Cantidad" class="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required min="1">
+                    </div>
+
+                    <input type="text" id="mov_motivo" placeholder="Motivo / Justificación" class="w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded transition text-sm">
+                        Procesar Movimiento
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- COLUMNA DERECHA -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Alertas de Stock Bajo -->
+            <div id="contenedorAlertas" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg shadow">
+                <h3 class="font-bold text-amber-800 flex items-center gap-2">⚠️ Alertas de Stock Bajo</h3>
+                <ul id="listaAlertas" class="list-disc list-inside text-sm text-amber-900 mt-2 space-y-1"></ul>
+            </div>
+
+            <!-- Tabla de Productos -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">📋 Productos en Inventario</h2>
+                    <button onclick="cargarTodo()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs border flex items-center gap-1 transition">
+                        <i class="fa-solid fa-rotate"></i> Recargar
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 border-b text-slate-600">
+                                <th class="p-2">ID</th>
+                                <th class="p-2">Código</th>
+                                <th class="p-2">Producto</th>
+                                <th class="p-2">Categoría</th>
+                                <th class="p-2">Stock</th>
+                                <th class="p-2">Precio Venta</th>
+                                <th class="p-2 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaProductos" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TABLA DE HISTORIAL DE MOVIMIENTOS -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-blue-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Historial de Movimientos
+                    </h2>
+                    <button onclick="cargarHistorial()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs border border-blue-200 flex items-center gap-1 transition font-medium">
+                        <i class="fa-solid fa-rotate"></i> Actualizar
+                    </button>
+                </div>
+                <div class="overflow-x-auto max-h-80 border rounded">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead class="bg-slate-100 border-b text-slate-600 sticky top-0">
+                            <tr>
+                                <th class="p-2">ID</th>
+                                <th class="p-2">Fecha</th>
+                                <th class="p-2">Producto</th>
+                                <th class="p-2">Tipo</th>
+                                <th class="p-2">Cantidad</th>
+                                <th class="p-2">Motivo</th>
+                                <th class="p-2">Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHistorial" class="divide-y text-xs"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Script de Lógica General -->
+    <script>
+        const API_BASE = window.location.origin;
+
+        function verificarGuardiaRuta() {
+            const sesionRaw = sessionStorage.getItem('usuario_sesion');
+            if (!sesionRaw) {
+                window.location.href = 'login.html';
+                return null;
+            }
+            const usuario = JSON.parse(sesionRaw);
+            const rolNorm = (usuario.rol || usuario.Rol || '').toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+            if (rolNorm.includes('vendedor') || rolNorm.includes('vend')) {
+                window.location.href = 'vendedor.html';
+                return null;
+            } else if (rolNorm.includes('almacen')) {
+                window.location.href = 'almacenista.html';
+                return null;
+            }
+            return usuario;
+        }
+
+        const usuarioActual = verificarGuardiaRuta();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (usuarioActual) {
+                document.getElementById('labelUsuario').textContent = `👤 ${usuarioActual.username || usuarioActual.nombre || 'Admin'}`;
+                cargarTodo();
+            }
+        });
+
+        function mostrarToast(mensaje, esError = false) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded shadow-lg text-white font-medium text-sm flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 ${esError ? 'bg-red-600' : 'bg-emerald-600'}`;
+            toast.innerHTML = `<i class="fa-solid ${esError ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> <span>${mensaje}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function cargarTodo() {
+            cargarInventario();
+            cargarCategorias();
+            cargarProveedores();
+            cargarAlertas();
+            cargarHistorial();
+        }
+
+        async function cargarInventario() {
+            try {
+                const res = await fetch(`${API_BASE}/productos`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const tbody = document.getElementById('tablaProductos');
+                const selectMov = document.getElementById('mov_id_producto');
+                tbody.innerHTML = '';
+                selectMov.innerHTML = '<option value="">Seleccionar Producto</option>';
+
+                const listaProductos = data.productos || data;
+
+                listaProductos.forEach(p => {
+                    const id = p.id_producto || p.idProducto;
+                    const cod = p.codigo_barras || p.codigoBarras || '-';
+                    const prodNombre = p.producto || p.nombre;
+                    const catNombre = p.categoria || p.nombreCategoria || 'Sin categoría';
+                    const stockAct = p.stock_actual ?? p.stockActual ?? 0;
+                    const stockMin = p.stock_minimo ?? p.stockMinimo ?? 5;
+                    const precVenta = parseFloat(p.precio_venta || p.precio || 0);
+
+                    const bajoStock = stockAct <= stockMin;
+
+                    tbody.innerHTML += `
+                            <tr class="hover:bg-slate-50 ${bajoStock ? 'bg-red-50' : ''}">
+                                <td class="p-2 font-semibold">${id}</td>
+                                <td class="p-2 text-gray-500">${cod}</td>
+                                <td class="p-2 font-medium">${prodNombre}</td>
+                                <td class="p-2">${catNombre}</td>
+                                <td class="p-2">
+                                    <span class="px-2 py-1 rounded-full text-xs font-bold ${bajoStock ? 'bg-red-200 text-red-800' : 'bg-green-100 text-green-800'}">
+                                        ${stockAct} ud.
+                                    </span>
+                                </td>
+                                <td class="p-2 font-semibold text-emerald-600">$${precVenta.toFixed(2)}</td>
+                                <td class="p-2 text-center">
+                                    <button onclick="eliminarProducto(${id})" class="text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded text-xs bg-red-50 hover:bg-red-100 border border-red-200 transition" title="Eliminar Producto">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>`;
+
+                    selectMov.innerHTML += `<option value="${id}">${prodNombre} (Stock: ${stockAct})</option>`;
+                });
+            } catch (err) {
+                console.error("Error al cargar inventario:", err);
+            }
+        }
+
+        async function cargarHistorial() {
+            try {
+                const res = await fetch(`${API_BASE}/movimientos`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const tbody = document.getElementById('tablaHistorial');
+                tbody.innerHTML = '';
+
+                const listaMovimientos = data.movimientos || data;
+
+                if (!Array.isArray(listaMovimientos) || listaMovimientos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">No hay movimientos registrados.</td></tr>`;
+                    return;
+                }
+
+                listaMovimientos.forEach(m => {
+                    const id = m.id_movimiento || m.idMovimiento;
+                    const fechaRaw = m.fecha || m.fechaMovimiento;
+                    const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+                    const producto = m.producto || m.nombreProducto || `Prod #${m.id_producto || m.idProducto}`;
+                    const tipo = (m.tipo_movimiento || m.tipoMovimiento || '').toUpperCase();
+                    const cantidad = m.cantidad || 0;
+                    const motivo = m.motivo || m.descripcion || '-';
+                    const usuario = m.rol_usuario || m.rolUsuario || 'Sistema';
+
+                    const esEntrada = tipo === 'ENTRADA' || tipo === 'COMPRA';
+
+                    tbody.innerHTML += `
+                            <tr class="hover:bg-slate-50 border-b">
+                                <td class="p-2 font-semibold text-gray-600">${id}</td>
+                                <td class="p-2 text-gray-500 whitespace-nowrap">${fecha}</td>
+                                <td class="p-2 font-medium text-slate-800">${producto}</td>
+                                <td class="p-2">
+                                    <span class="px-2 py-0.5 rounded text-[11px] font-bold ${esEntrada ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'}">
+                                        ${tipo}
+                                    </span>
+                                </td>
+                                <td class="p-2 font-bold">${cantidad} ud.</td>
+                                <td class="p-2 text-gray-600 max-w-xs truncate">${motivo}</td>
+                                <td class="p-2"><span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded border text-[11px]">${usuario}</span></td>
+                            </tr>`;
+                });
+            } catch (err) {
+                console.error("Error al cargar historial:", err);
+            }
+        }
+
+        async function cargarCategorias() {
+            try {
+                const res = await fetch(`${API_BASE}/categorias`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const select = document.getElementById('id_categoria');
+                const tbody = document.getElementById('tablaCategorias');
+                select.innerHTML = '<option value="">Seleccionar Categoría</option>';
+                tbody.innerHTML = '';
+
+                const listaCats = data.categorias || data;
+
+                listaCats.forEach(c => {
+                    const id = c.id_categoria || c.idCategoria;
+                    const nombre = c.nombre;
+
+                    select.innerHTML += `<option value="${id}">${nombre}</option>`;
+                    tbody.innerHTML += `
+                            <tr>
+                                <td class="p-2 font-semibold">${id}</td>
+                                <td class="p-2">${nombre}</td>
+                                <td class="p-2 text-center">
+                                    <button onclick="eliminarCategoria(${id})" class="text-red-600 hover:text-red-800 font-bold px-2 py-0.5 rounded text-xs bg-red-50 hover:bg-red-100 border border-red-200 transition">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>`;
+                });
+            } catch (err) {
+                console.error("Error al cargar categorías:", err);
+            }
+        }
+
+        async function cargarProveedores() {
+            try {
+                const res = await fetch(`${API_BASE}/proveedores`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const select = document.getElementById('id_proveedor');
+                select.innerHTML = '<option value="">Seleccionar Proveedor</option>';
+
+                const listaProvs = data.proveedores || data;
+
+                listaProvs.forEach(p => {
+                    const id = p.id_proveedor || p.idProveedor;
+                    const nombre = p.nombre_empresa || p.nombre;
+                    select.innerHTML += `<option value="${id}">${nombre}</option>`;
+                });
+            } catch (err) {
+                console.error("Error al cargar proveedores:", err);
+            }
+        }
+
+        async function cargarAlertas() {
+            try {
+                const res = await fetch(`${API_BASE}/productos/alertas`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const contenedor = document.getElementById('contenedorAlertas');
+                const lista = document.getElementById('listaAlertas');
+
+                const alertas = data.alertas_stock || data;
+
+                if (alertas && alertas.length > 0) {
+                    contenedor.classList.remove('hidden');
+                    lista.innerHTML = '';
+                    alertas.forEach(a => {
+                        const nombre = a.nombre || a.producto;
+                        const stockAct = a.stock_actual ?? a.stockActual;
+                        const stockMin = a.stock_minimo ?? a.stockMinimo;
+                        lista.innerHTML += `<li><strong>${nombre}</strong> (Quedan: ${stockAct} / Mínimo: ${stockMin})</li>`;
+                    });
+                } else {
+                    contenedor.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Error al cargar alertas:", err);
+            }
+        }
+
+        // Crear Categoría
+        document.getElementById('formCategoria').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('nombreCategoria').value.trim();
+
+            try {
+                const res = await fetch(`${API_BASE}/categorias`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre })
+                });
+
+                if (res.ok) {
+                    mostrarToast('Categoría creada exitosamente');
+                    document.getElementById('formCategoria').reset();
+                    cargarCategorias();
+                } else {
+                    mostrarToast('Error al crear la categoría', true);
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión con el servidor', true);
+            }
+        });
+
+        // Eliminar Categoría
+        async function eliminarCategoria(id) {
+            if (!confirm('¿Deseas eliminar esta categoría?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/categorias/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    mostrarToast('Categoría eliminada');
+                    cargarCategorias();
+                } else {
+                    mostrarToast('No se puede eliminar la categoría si está asignada a productos', true);
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión', true);
+            }
+        }
+
+        // Crear Producto
+        document.getElementById('formProducto').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                codigoBarras: document.getElementById('codigo_barras').value.trim(),
+                nombre: document.getElementById('nombre').value.trim(),
+                descripcion: document.getElementById('descripcion').value.trim(),
+                idCategoria: parseInt(document.getElementById('id_categoria').value),
+                idProveedor: parseInt(document.getElementById('id_proveedor').value),
+                precioCompra: parseFloat(document.getElementById('precio_compra').value),
+                precioVenta: parseFloat(document.getElementById('precio_venta').value),
+                stockActual: parseInt(document.getElementById('stock_actual').value),
+                stockMinimo: parseInt(document.getElementById('stock_minimo').value)
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/productos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    mostrarToast('Producto creado con éxito');
+                    document.getElementById('formProducto').reset();
+                    cargarTodo();
+                } else {
+                    mostrarToast('Error al guardar el producto', true);
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión con el servidor', true);
+            }
+        });
+
+        // Eliminar Producto
+        async function eliminarProducto(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/productos/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    mostrarToast('Producto eliminado exitosamente');
+                    cargarTodo();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    mostrarToast(`No se pudo eliminar: ${err.mensaje || 'Error en el servidor'}`, true);
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión al intentar eliminar', true);
+            }
+        }
+
+        // Registrar Movimiento Libre
+        document.getElementById('formMovimiento').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const textoMotivo = document.getElementById('mov_motivo').value.trim();
+
+            const body = {
+                idProducto: parseInt(document.getElementById('mov_id_producto').value),
+                tipoMovimiento: document.getElementById('mov_tipo').value,
+                cantidad: parseInt(document.getElementById('mov_cantidad').value),
+                motivo: textoMotivo,
+                descripcion: textoMotivo,
+                rolUsuario: usuarioActual ? (usuarioActual.rol || usuarioActual.Rol || 'Administrador') : 'Administrador'
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/movimientos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    mostrarToast('Movimiento registrado con éxito');
+                    document.getElementById('formMovimiento').reset();
+                    cargarTodo();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    mostrarToast(`Error: ${err.mensaje || 'Error al procesar el movimiento'}`, true);
+                }
+            } catch (err) {
+                mostrarToast('Error de conexión con el servidor', true);
+            }
+        });
+
+        function cerrarSesion() {
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendedor - Control de Salidas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+    <!-- Notificaciones Toast -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <nav class="bg-blue-700 text-white p-4 flex justify-between items-center shadow-lg mb-6">
+        <h1 class="text-xl font-bold flex items-center gap-2">🛒 Ventas - Salidas de Inventario</h1>
+        <button onclick="cerrarSesion()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs transition">
+            <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+        </button>
+    </nav>
+
+    <div class="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Formulario Salidas -->
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600 h-fit">
+            <h2 class="text-lg font-bold mb-4 text-blue-700 flex items-center gap-2">
+                <i class="fa-solid fa-cart-arrow-down"></i> Registrar Salida / Venta
+            </h2>
+            <form id="formSalida" class="space-y-3">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Producto</label>
+                    <select id="idProducto" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required></select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Cantidad a Retirar</label>
+                    <input type="number" id="cantidad" class="w-full p-2 border rounded" min="1" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Motivo / Cliente</label>
+                    <input type="text" id="motivo" placeholder="ej. Venta en mostrador" class="w-full p-2 border rounded" required>
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded transition">
+                    Procesar Salida
+                </button>
+            </form>
+        </div>
+
+        <!-- COLUMNA DERECHA -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <div id="contenedorAlertas" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg shadow">
+                <h3 class="font-bold text-amber-800 flex items-center gap-2">⚠️ Alertas de Stock Bajo</h3>
+                <ul id="listaAlertas" class="list-disc list-inside text-sm text-amber-900 mt-2 space-y-1"></ul>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">📋 Stock de Productos</h2>
+                    <button onclick="cargarTodo()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded text-xs border">Recargar</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 border-b text-slate-600">
+                                <th class="p-2">ID</th>
+                                <th class="p-2">Producto</th>
+                                <th class="p-2">Categoría</th>
+                                <th class="p-2">Stock Actual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaProductos" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function verificarGuardiaRuta() {
+            const sesionRaw = sessionStorage.getItem('usuario_sesion');
+            if (!sesionRaw) { window.location.href = 'login.html'; return null; }
+            const usuario = JSON.parse(sesionRaw);
+            const rolNorm = (usuario.rol || usuario.Rol || '').toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            if (!rolNorm.includes('vendedor') && !rolNorm.includes('vend')) {
+                if (rolNorm.includes('almacen')) window.location.href = 'almacenista.html';
+                else window.location.href = 'index.html';
+                return null;
+            }
+            return usuario;
+        }
+
+        const usuarioActual = verificarGuardiaRuta();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (usuarioActual) cargarTodo();
+        });
+
+        function mostrarToast(mensaje, esError = false) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded shadow-lg text-white font-medium text-sm flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 ${esError ? 'bg-red-600' : 'bg-emerald-600'}`;
+            toast.innerHTML = `<i class="fa-solid ${esError ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> <span>${mensaje}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function cargarTodo() {
+            cargarProductos();
+            cargarAlertas();
+        }
+
+        async function cargarProductos() {
+            try {
+                const res = await fetch(`${API_BASE}/productos`);
+                const data = await res.json();
+                const tbody = document.getElementById('tablaProductos');
+                const select = document.getElementById('idProducto');
+                tbody.innerHTML = '';
+                select.innerHTML = '<option value="">Seleccionar Producto</option>';
+
+                data.productos.forEach(p => {
+                    const bajoStock = p.stock_actual <= p.stock_minimo;
+                    tbody.innerHTML += `
+                            <tr class="border-b ${bajoStock ? 'bg-red-50' : ''}">
+                                <td class="p-2 font-semibold">${p.id_producto}</td>
+                                <td class="p-2 font-medium">${p.producto}</td>
+                                <td class="p-2 text-gray-500">${p.categoria || 'Sin categoría'}</td>
+                                <td class="p-2">
+                                    <span class="px-2 py-1 rounded-full text-xs font-bold ${bajoStock ? 'bg-red-200 text-red-800' : 'bg-green-100 text-green-800'}">
+                                        ${p.stock_actual} ud.
+                                    </span>
+                                </td>
+                            </tr>`;
+                    select.innerHTML += `<option value="${p.id_producto}">${p.producto} (Stock: ${p.stock_actual})</option>`;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function cargarAlertas() {
+            try {
+                const res = await fetch(`${API_BASE}/productos/alertas`);
+                const data = await res.json();
+                const contenedor = document.getElementById('contenedorAlertas');
+                const lista = document.getElementById('listaAlertas');
+
+                if (data.alertas_stock && data.alertas_stock.length > 0) {
+                    contenedor.classList.remove('hidden');
+                    lista.innerHTML = '';
+                    data.alertas_stock.forEach(a => {
+                        lista.innerHTML += `<li><strong>${a.nombre}</strong> (Quedan: ${a.stock_actual} / Mínimo: ${a.stock_minimo})</li>`;
+                    });
+                } else {
+                    contenedor.classList.add('hidden');
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        document.getElementById('formSalida').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const textoMotivo = document.getElementById('motivo').value;
+            const body = {
+                idProducto: parseInt(document.getElementById('idProducto').value),
+                tipoMovimiento: 'SALIDA',
+                cantidad: parseInt(document.getElementById('cantidad').value),
+                motivo: textoMotivo,
+                descripcion: textoMotivo,
+                rolUsuario: 'Vendedor'
+            };
+
+            const res = await fetch(`${API_BASE}/movimientos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                mostrarToast('Salida/Venta registrada exitosamente');
+                document.getElementById('formSalida').reset();
+                cargarTodo();
+            } else {
+                const err = await res.json();
+                mostrarToast(`Error: ${err.mensaje || 'No se pudo procesar la salida'}`, true);
+            }
+        });
+
+        function cerrarSesion() {
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
